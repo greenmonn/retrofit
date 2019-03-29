@@ -396,6 +396,40 @@ public final class RequestFactoryTest {
     }
   }
 
+  @Test public void headersFailWhenMalformedWithoutKey() {
+    class Example {
+      @GET("/") //
+      @Headers(":Malformed") //
+      Call<ResponseBody> method() {
+        return null;
+      }
+    }
+    try {
+      buildRequest(Example.class);
+      fail();
+    } catch (IllegalArgumentException e) {
+      assertThat(e).hasMessage(
+          "@Headers value must be in the form \"Name: Value\". Found: \":Malformed\"\n    for method Example.method");
+    }
+  }
+
+  @Test public void headersFailWhenMalformedWithoutAttributes() {
+    class Example {
+      @GET("/") //
+      @Headers("Malformed:") //
+      Call<ResponseBody> method() {
+        return null;
+      }
+    }
+    try {
+      buildRequest(Example.class);
+      fail();
+    } catch (IllegalArgumentException e) {
+      assertThat(e).hasMessage(
+          "@Headers value must be in the form \"Name: Value\". Found: \"Malformed:\"\n    for method Example.method");
+    }
+  }
+
   @Test public void pathParamNonPathParamAndTypedBytes() {
     class Example {
       @PUT("/{a}") //
@@ -1077,6 +1111,44 @@ public final class RequestFactoryTest {
     assertThat(request.headers().size()).isZero();
     assertThat(request.url().toString()).isEqualTo("http://example.com/foo/bar/pong/?kit=kat&riff=raff");
     assertThat(request.body()).isNull();
+  }
+
+  @Test
+  public void getWithUnresolvableQueryType() {
+    class Example {
+      @GET("/foo/bar/{ping}/") //
+      Call<ResponseBody> method(@Query("kit") Class<?> kit) {
+        return null;
+      }
+    }
+
+    try {
+      buildRequest(Example.class, "kat");
+      fail();
+    } catch (IllegalArgumentException e) {
+      assertThat(e).hasMessage(
+          "Parameter type must not include a type variable or wildcard: java.lang.Class<?> (parameter #1)\n"
+            + "    for method Example.method");
+    }
+  }
+
+  @Test
+  public void getWithUnresolvablePathType() {
+    class Example {
+      @GET("/foo/bar/{ping}/") //
+      Call<ResponseBody> method(@Path("ping") Class<?> ping) {
+        return null;
+      }
+    }
+
+    try {
+      buildRequest(Example.class, "pong");
+      fail();
+    } catch (IllegalArgumentException e) {
+      assertThat(e)
+          .hasMessage("Parameter type must not include a type variable or wildcard: java.lang.Class<?> (parameter #1)\n"
+              + "    for method Example.method");
+    }
   }
 
   @Test public void getWithQueryThenPathThrows() {
